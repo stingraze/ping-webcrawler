@@ -1,4 +1,4 @@
-# (C)Tsubasa Kato - Inspire Search Corporation 2024/9/6 10:29AM JST
+# (C)Tsubasa Kato - Inspire Search Corporation Last Updated: 2024/9/7 8:02AM JST
 # Visit our company at: https://www.inspiresearch.io/en
 # ping-webcrawler is a web crawler that first measures response time from the web servers.
 # Created with the help of Perplexity Pro etc.
@@ -49,10 +49,10 @@ def measure_response_time(url):
         return (float('inf'), url)
 
 def extract_metadata_and_content(response):
-    detected_encoding = chardet.detect(response.content)['encoding']
-    response.encoding = detected_encoding if detected_encoding else response.apparent_encoding
+    detected_encoding = chardet.detect(response.content).get('encoding', 'utf-8')
+    response.encoding = detected_encoding
 
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = BeautifulSoup(response.content, 'html.parser', from_encoding=response.encoding)
 
     title = soup.title.string if soup.title else "N/A"
     keywords = soup.find("meta", {"name": "keywords"})
@@ -169,3 +169,4 @@ def stop():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
