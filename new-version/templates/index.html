@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ping-webcrawler — Inspire Search</title>
+  <meta name="description" content="Measure response time, crawl, extract metadata/content. Modern UI with light/dark mode." />
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <div class="brand">
+        <div class="brand__logo" aria-hidden="true">◎</div>
+        <div class="brand__text">
+          <div class="brand__title">ping-webcrawler</div>
+          <div class="brand__sub">Inspire Search Corporation</div>
+        </div>
+      </div>
+
+      <nav class="topbar__actions" aria-label="Header actions">
+        <a class="chip" href="https://www.inspiresearch.io/en" target="_blank" rel="noreferrer">
+          Visit Inspire Search
+        </a>
+
+        <button id="themeToggle" class="btn btn--ghost" type="button" aria-label="Toggle theme">
+          <span class="icon" aria-hidden="true">◐</span>
+          Theme
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="grid">
+      <!-- Left: Controls -->
+      <div class="card">
+        <div class="card__header">
+          <h1 class="h1">Crawl Seeds</h1>
+          <p class="muted">
+            Paste one URL per line. We measure RTT first, then crawl (same-host optional) and extract title/meta/body snippet.
+          </p>
+        </div>
+
+        <form id="crawlForm" class="stack" autocomplete="off">
+          <label class="field">
+            <span class="field__label">Seed URLs</span>
+            <textarea id="urls" class="textarea" rows="10" spellcheck="false"
+              placeholder="https://example.com&#10;https://example.org"></textarea>
+            <span class="field__hint">Tip: include full scheme (https://). Missing schemes are auto-assumed as https.</span>
+          </label>
+
+          <div class="options">
+            <div class="field">
+              <label class="field__label" for="MAX_DEPTH">Max depth</label>
+              <input id="MAX_DEPTH" class="input" type="number" min="0" max="10" value="{{ defaults['MAX_DEPTH'] }}" />
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="MAX_URLS">Max URLs</label>
+              <input id="MAX_URLS" class="input" type="number" min="1" max="10000" value="{{ defaults['MAX_URLS'] }}" />
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="REQUEST_TIMEOUT">Timeout (sec)</label>
+              <input id="REQUEST_TIMEOUT" class="input" type="number" min="1" max="60" value="{{ defaults['REQUEST_TIMEOUT'] }}" />
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="WORKERS">Workers</label>
+              <input id="WORKERS" class="input" type="number" min="1" max="128" value="{{ defaults['WORKERS'] }}" />
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="MAX_CHARS">Max chars/field</label>
+              <input id="MAX_CHARS" class="input" type="number" min="64" max="8000" value="{{ defaults['MAX_CHARS'] }}" />
+            </div>
+
+            <div class="field field--row">
+              <input id="SAME_HOST_ONLY" type="checkbox"/>
+              <label for="SAME_HOST_ONLY" class="field__label field__label--inline">Same host only</label>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="startBtn" class="btn btn--primary" type="submit">
+              <span class="icon" aria-hidden="true">▶</span>
+              Start
+            </button>
+
+            <button id="stopBtn" class="btn btn--danger" type="button" disabled>
+              <span class="icon" aria-hidden="true">■</span>
+              Stop
+            </button>
+
+            <a id="downloadBtn" class="btn btn--ghost" href="/download" aria-disabled="true">
+              <span class="icon" aria-hidden="true">⬇</span>
+              Download CSV
+            </a>
+          </div>
+
+          <div class="statusline" role="status" aria-live="polite">
+            <span id="statusPill" class="pill">Idle</span>
+            <span class="muted" id="statusText">Ready.</span>
+          </div>
+        </form>
+      </div>
+
+      <!-- Right: Progress + Results -->
+      <div class="stack">
+        <div class="card">
+          <div class="card__header row">
+            <h2 class="h2">Live Progress</h2>
+            <div class="row__right">
+              <button id="clearLogBtn" class="btn btn--ghost btn--sm" type="button">Clear</button>
+              <button id="pauseLogBtn" class="btn btn--ghost btn--sm" type="button" aria-pressed="false">Pause</button>
+            </div>
+          </div>
+
+          <div class="log" id="log" aria-label="Crawler log" tabindex="0"></div>
+          <div class="footer muted">
+            SSE updates every ~0.5–2s. If you deploy behind a proxy, ensure event-stream buffering is disabled.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__header row">
+            <h2 class="h2">Results Preview</h2>
+            <div class="row__right">
+              <input id="filterInput" class="input input--sm" type="text" placeholder="Filter URL/title…" />
+              <button id="refreshBtn" class="btn btn--ghost btn--sm" type="button">Refresh</button>
+            </div>
+          </div>
+
+          <div class="tableWrap" role="region" aria-label="Results table" tabindex="0">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>URL</th>
+                  <th>RTT</th>
+                  <th>Title</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody">
+                <tr>
+                  <td class="muted" colspan="4">No results yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="footer">
+            <span class="muted" id="resultsMeta">0 items</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="siteFooter muted">
+      <div>© Inspire Search Corporation — ping-webcrawler UI refresh.</div>
+      <div class="muted">Built with Flask + SSE. Light/dark mode supports OS preference and manual toggle.</div>
+    </footer>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
